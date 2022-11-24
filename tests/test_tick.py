@@ -1,11 +1,10 @@
-import json
 import os
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 from time import sleep
-from src.tick_off import Tick, ValidFor
+from src.tickoff import FileTick
+from src.tickoff.lifetime import Constant
 
 
 class TemporaryFileName:
@@ -29,34 +28,30 @@ class TemporaryFileName:
 
 def test_tick_when_token_does_not_exist():
     lifetime = timedelta(seconds=1)
-    tick = Tick(Path("does-not-exist"), ValidFor(lifetime))
-    assert not tick.is_created
-    assert not tick.is_valid
-    assert tick.is_expired
+    tick = FileTick(Path("does-not-exist"), Constant(lifetime))
+    assert not tick.token.is_valid
+    assert tick.token.is_expired
 
 
 def test_tick_when_token_exists() -> None:
     lifetime = timedelta(seconds=1)
     with TemporaryFileName(suffix="_token_test.json") as temp_name:
-        with Tick(Path(temp_name), ValidFor(lifetime)) as tick:
-            assert not tick.is_created
-            assert tick.is_expired
+        with FileTick(Path(temp_name), Constant(lifetime)) as tick:
+            assert tick.token.is_expired
 
-        with Tick(Path(temp_name), ValidFor(lifetime)) as tick:
-            assert tick.is_created
-            assert tick.is_valid
-            assert not tick.is_expired
+        with FileTick(Path(temp_name), Constant(lifetime)) as tick:
+            assert tick.token.is_valid
+            assert not tick.token.is_expired
 
             sleep(1.5)
-            assert tick.is_created
-            assert not tick.is_valid
-            assert tick.is_expired
+            assert not tick.token.is_valid
+            assert tick.token.is_expired
 
 
 def test_tick_decorator():
     lifetime = timedelta(seconds=3)
     with TemporaryFileName(suffix="_token_test.json") as temp_name:
-        @Tick(Path(temp_name), lifetime)
+        @Tick(Path(temp_name), Constant(lifetime))
         def foo() -> bool:
             return True
 
